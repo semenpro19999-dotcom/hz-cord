@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HZ-Cord</title>
+    <style>
+        /* Палитра Discord */
+        :root {
+            --bg-primary: #36393f; --bg-secondary: #2f3136; --bg-tertiary: #202225;
+            --bg-modifier-hover: rgba(79, 84, 92, 0.16);
+            --text-normal: #dcddde; --text-muted: #72767d; --header-primary: #fff;
+            --brand-color: #5865F2; --brand-color-hover: #4752c4;
+            --danger-color: #ed4245; --channeltextarea-background: #40444b;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Whitney', 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+        body { background-color: var(--bg-primary); color: var(--text-normal); height: 100vh; overflow: hidden; }
+
+        /* Экраны */
+        #auth-screen { display: flex; justify-content: center; align-items: center; height: 100vh; background: #2f3136; }
+        #app-screen { display: none; height: 100vh; }
+
+        /* Авторизация */
+        .auth-box { background-color: var(--bg-primary); width: 480px; padding: 32px; border-radius: 5px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
+        .auth-box h2 { color: var(--header-primary); text-align: center; margin-bottom: 8px; font-size: 24px; }
+        .input-group { margin-bottom: 20px; }
+        .input-group label { display: block; color: #8e9297; font-size: 12px; font-weight: bold; margin-bottom: 8px; text-transform: uppercase; }
+        .input-group input { width: 100%; padding: 10px; background-color: var(--bg-tertiary); border: 1px solid rgba(0,0,0,0.3); border-radius: 3px; color: var(--text-normal); outline: none; }
+        .btn { width: 100%; padding: 10px; background-color: var(--brand-color); color: #fff; border: none; border-radius: 3px; font-size: 16px; font-weight: bold; cursor: pointer; }
+        .btn:hover { background-color: var(--brand-color-hover); }
+        .switch-link { color: #00aff4; font-size: 14px; cursor: pointer; margin-top: 10px; display: inline-block; }
+
+        /* Интерфейс */
+        .app-layout { display: flex; width: 100%; height: 100%; }
+        .guilds { width: 72px; background-color: var(--bg-tertiary); padding: 12px 0; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+        .guild-icon { width: 48px; height: 48px; background-color: var(--bg-primary); border-radius: 50%; display: flex; justify-content: center; align-items: center; cursor: pointer; font-weight: bold; }
+        .guild-icon:hover, .guild-icon.active { background-color: var(--brand-color); color: white; border-radius: 16px; }
+        
+        .sidebar { width: 240px; background-color: var(--bg-secondary); display: flex; flex-direction: column; }
+        .scroller { flex: 1; overflow-y: auto; padding: 8px; }
+        .friend-item { display: flex; align-items: center; padding: 6px 8px; border-radius: 4px; cursor: pointer; color: #8e9297; margin-bottom: 2px; }
+        .friend-item:hover, .friend-item.active { background-color: var(--bg-modifier-hover); color: var(--text-normal); }
+        .avatar { width: 32px; height: 32px; border-radius: 50%; background-color: var(--brand-color); margin-right: 12px; display: flex; justify-content: center; align-items: center; color: white; font-weight: bold; }
+        
+        .user-panel { height: 52px; background-color: #292b2f; padding: 0 8px; display: flex; align-items: center; justify-content: space-between; }
+        .user-info { display: flex; align-items: center; cursor: pointer; }
+        .user-text { display: flex; flex-direction: column; margin-left: 8px; }
+        .username { color: var(--header-primary); font-size: 14px; font-weight: bold; }
+        .userid { color: var(--text-muted); font-size: 12px; }
+
+        /* Чат */
+        .chat-area { flex: 1; display: flex; flex-direction: column; background-color: var(--bg-primary); }
+        .chat-header { height: 48px; border-bottom: 1px solid var(--bg-tertiary); display: flex; align-items: center; padding: 0 16px; font-size: 16px; font-weight: bold; color: var(--header-primary); }
+        
+        #add-friend-view { display: flex; flex-direction: column; padding: 40px; }
+        .add-input-wrapper { display: flex; background-color: var(--bg-tertiary); padding: 10px; border-radius: 8px; margin-bottom: 20px;}
+        .add-input-wrapper input { flex: 1; background: transparent; border: none; color: white; outline: none; }
+        .add-input-wrapper button { background-color: var(--brand-color); color: white; border: none; padding: 6px 16px; border-radius: 4px; cursor: pointer; font-weight: bold;}
+
+        #messages-view { display: none; flex-direction: column; height: 100%; }
+        .messages-box { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 20px; }
+        .message-row { display: flex; margin-bottom: 5px; }
+        .message-header { display: flex; align-items: baseline; margin-bottom: 4px; }
+        .message-author { color: var(--header-primary); font-size: 16px; font-weight: 500; margin-right: 8px; }
+        .message-time { color: var(--text-muted); font-size: 12px; }
+        .chat-input-wrapper { padding: 0 16px 24px; }
+        .chat-input { background-color: var(--channeltextarea-background); border-radius: 8px; padding: 12px 16px; display: flex; }
+        .chat-input input { flex: 1; background: transparent; border: none; color: var(--text-normal); outline: none; font-size: 15px; }
+    </style>
+</head>
+<body>
+
+    <!-- ЭКРАН ВХОДА -->
+    <div id="auth-screen">
+        <div class="auth-box" id="login-form">
+            <h2>Вход в Сеть</h2>
+            <div class="input-group"><label>Позывной</label><input type="text" id="login-username"></div>
+            <div class="input-group"><label>Пароль</label><input type="password" id="login-password"></div>
+            <button class="btn" id="btn-login">Войти</button>
+            <span class="switch-link" id="link-register">Нет аккаунта? Зарегистрироваться</span>
+        </div>
+
+        <div class="auth-box" id="register-form" style="display: none;">
+            <h2>Регистрация</h2>
+            <div class="input-group"><label>Придумайте Позывной</label><input type="text" id="reg-username"></div>
+            <div class="input-group"><label>Придумайте Пароль</label><input type="password" id="reg-password"></div>
+            <button class="btn" id="btn-register">Создать аккаунт</button>
+            <span class="switch-link" id="link-login">Уже есть аккаунт? Войти</span>
+        </div>
+    </div>
+
+    <!-- ГЛАВНЫЙ ЭКРАН -->
+    <div id="app-screen">
+        <div class="app-layout">
+            <div class="guilds">
+                <div class="guild-icon active" id="btn-home" title="Главная">Hz</div>
+            </div>
+
+            <div class="sidebar">
+                <div class="scroller">
+                    <div style="color: #8e9297; font-size: 12px; font-weight: bold; margin: 10px 8px;">ЛИЧНЫЕ СООБЩЕНИЯ</div>
+                    <div id="friend-list"></div>
+                </div>
+                <div class="user-panel">
+                    <div class="user-info" id="btn-copy-id" title="Нажми, чтобы скопировать ID">
+                        <div class="avatar" id="my-avatar">?</div>
+                        <div class="user-text">
+                            <span class="username" id="ui-username">User</span>
+                            <span class="userid" id="ui-my-id">ID: ...</span>
+                        </div>
+                    </div>
+                    <button style="background:transparent; color:#ed4245; border:none; cursor:pointer; font-size: 18px;" id="btn-logout">🚪</button>
+                </div>
+            </div>
+
+            <div class="chat-area">
+                <div id="add-friend-view">
+                    <h2>Новый чат</h2>
+                    <p style="color: var(--text-muted); margin-bottom: 20px;">Введите уникальный HZ-ID пользователя, чтобы открыть с ним чат. Вы автоматически появитесь у него в списке.</p>
+                    <div class="add-input-wrapper">
+                        <input type="text" id="new-friend-id" placeholder="Вставьте HZ-ID (например HZ-X3G1H...)">
+                        <button id="btn-add-friend">Начать чат</button>
+                    </div>
+                    <div class="add-input-wrapper">
+                        <input type="text" id="new-friend-name" placeholder="Как назвать собеседника у себя в списке? (Опционально)">
+                    </div>
+                </div>
+
+                <div id="messages-view">
+                    <div class="chat-header">@ <span id="current-chat-name" style="margin-left: 5px;">Имя</span></div>
+                    <div class="messages-box" id="messages-box"></div>
+                    <div class="chat-input-wrapper">
+                        <div class="chat-input">
+                            <input type="text" id="msg-input" placeholder="Написать сообщение...">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlAfjw2f2EtJzX2N9mSlrvCSgdvIg0nMs",
+            authDomain: "hz-cord.firebaseapp.com",
+            databaseURL: "https://hz-cord-default-rtdb.europe-west1.firebasedatabase.app", 
+            projectId: "hz-cord",
+            storageBucket: "hz-cord.firebasestorage.app",
+            messagingSenderId: "1021472570029",
+            appId: "1:1021472570029:web:f89d485903048f0e192424"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        let currentUser = null;
+        let activeChatId = null;
+        let currentChatRef = null;
+
+        window.onload = () => {
+            const saved = localStorage.getItem('hzCord_user');
+            if (saved) { currentUser = JSON.parse(saved); startApp(); }
+        };
+
+        // РЕГИСТРАЦИЯ
+        document.getElementById('btn-register').onclick = async () => {
+            const name = document.getElementById('reg-username').value.trim();
+            const pass = document.getElementById('reg-password').value.trim();
+            if(!name || !pass) return alert("Заполни все поля!");
+
+            try {
+                document.getElementById('btn-register').innerText = "Загрузка...";
+                const snapshot = await db.ref(`users/${name}`).get();
+                if (snapshot.exists()) {
+                    document.getElementById('btn-register').innerText = "Создать аккаунт";
+                    return alert("Такой позывной уже занят!");
+                }
+
+                const uniqueId = 'HZ-' + Math.random().toString(36).substr(2, 9).toUpperCase();
+                currentUser = { username: name, password: pass, myId: uniqueId };
+                
+                await db.ref(`users/${name}`).set(currentUser); 
+                await db.ref(`ids/${uniqueId}`).set(name);      
+                
+                localStorage.setItem('hzCord_user', JSON.stringify(currentUser));
+                startApp();
+            } catch(e) {
+                alert("Ошибка: " + e.message);
+                document.getElementById('btn-register').innerText = "Создать аккаунт";
+            }
+        };
+
+        // ВХОД
+        document.getElementById('btn-login').onclick = async () => {
+            const name = document.getElementById('login-username').value.trim();
+            const pass = document.getElementById('login-password').value.trim();
+            if(!name || !pass) return alert("Заполни все поля!");
+
+            try {
+                document.getElementById('btn-login').innerText = "Загрузка...";
+                const snapshot = await db.ref(`users/${name}`).get();
+                if (!snapshot.exists() || snapshot.val().password !== pass) {
+                    document.getElementById('btn-login').innerText = "Войти";
+                    return alert("Неверный логин или пароль!");
+                }
+
+                currentUser = snapshot.val();
+                localStorage.setItem('hzCord_user', JSON.stringify(currentUser));
+                startApp();
+            } catch(e) {
+                alert("Ошибка: " + e.message);
+                document.getElementById('btn-login').innerText = "Войти";
+            }
+        };
+
+        function startApp() {
+            document.getElementById('auth-screen').style.display = 'none';
+            document.getElementById('app-screen').style.display = 'block';
+            
+            document.getElementById('ui-username').innerText = currentUser.username;
+            document.getElementById('ui-my-id').innerText = currentUser.myId;
+            document.getElementById('my-avatar').innerText = currentUser.username.charAt(0).toUpperCase();
+
+            db.ref(`users/${currentUser.username}/friends`).on('value', (snapshot) => {
+                const friends = snapshot.val() || {};
+                renderFriendList(friends);
+            });
+            showAddFriend();
+        }
+
+        // ==========================================
+        // ЛОГИКА ВЗАИМНОГО ДОБАВЛЕНИЯ
+        // ==========================================
+        document.getElementById('btn-add-friend').onclick = async () => {
+            const friendId = document.getElementById('new-friend-id').value.trim();
+            let friendName = document.getElementById('new-friend-name').value.trim();
+            
+            if(!friendId) return alert("Нужен ID друга!");
+            if(friendId === currentUser.myId) return alert("Нельзя добавить самого себя!");
+
+            try {
+                // 1. Ищем настоящий никнейм друга по его ID
+                const snapshot = await db.ref(`ids/${friendId}`).get();
+                if (!snapshot.exists()) return alert("Пользователь с таким ID не найден!");
+
+                const actualFriendUsername = snapshot.val(); // Это настоящий ник друга из базы
+                if (!friendName) friendName = actualFriendUsername; // Если ты не ввел имя, будет использоваться его ник
+
+                // 2. Добавляем друга В ТВОЙ список
+                await db.ref(`users/${currentUser.username}/friends/${friendId}`).set(friendName);
+                
+                // 3. Добавляем ТЕБЯ в список ДРУГА (взаимное добавление)
+                // Мы записываем твой ID и твой никнейм прямо в его аккаунт
+                await db.ref(`users/${actualFriendUsername}/friends/${currentUser.myId}`).set(currentUser.username);
+                
+                document.getElementById('new-friend-id').value = '';
+                document.getElementById('new-friend-name').value = '';
+                
+                // Сразу открываем чат с ним
+                openChat(friendId, friendName);
+            } catch(e) {
+                alert("Ошибка поиска: " + e.message);
+            }
+        };
+
+        function renderFriendList(friendsObj) {
+            const list = document.getElementById('friend-list');
+            list.innerHTML = '';
+            
+            Object.entries(friendsObj).forEach(([id, name]) => {
+                const div = document.createElement('div');
+                div.className = `friend-item ${activeChatId === id ? 'active' : ''}`;
+                div.onclick = () => openChat(id, name);
+                div.innerHTML = `
+                    <div class="avatar" style="background-color: ${stringToColor(id)}">${name.charAt(0).toUpperCase()}</div>
+                    <span>${name}</span>
+                `;
+                list.appendChild(div);
+            });
+        }
+
+        function openChat(friendId, friendName) {
+            document.getElementById('add-friend-view').style.display = 'none';
+            document.getElementById('messages-view').style.display = 'flex';
+            document.getElementById('current-chat-name').innerText = friendName;
+            
+            activeChatId = friendId;
+            document.getElementById('msg-input').focus();
+            
+            const items = document.querySelectorAll('.friend-item');
+            items.forEach(el => el.classList.remove('active'));
+
+            const roomId = [currentUser.myId, friendId].sort().join('_');
+
+            if(currentChatRef) currentChatRef.off();
+
+            currentChatRef = db.ref(`chats/${roomId}`);
+            currentChatRef.on('value', (snapshot) => {
+                const msgs = snapshot.val() || {};
+                document.getElementById('messages-box').innerHTML = ''; 
+                Object.values(msgs).forEach(msg => {
+                    displayMessage(msg.text, msg.author, msg.authorId === currentUser.myId, msg.time);
+                });
+            });
+        }
+
+        document.getElementById('msg-input').addEventListener('keypress', async (e) => {
+            if (e.key === 'Enter') {
+                const text = e.target.value.trim();
+                if(!text || !activeChatId) return;
+                
+                e.target.value = ''; 
+                
+                const roomId = [currentUser.myId, activeChatId].sort().join('_');
+                const time = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                
+                await db.ref(`chats/${roomId}`).push({
+                    text: text,
+                    author: currentUser.username,
+                    authorId: currentUser.myId,
+                    time: time
+                });
+            }
+        });
+
+        function displayMessage(text, author, isMe, time) {
+            const box = document.getElementById('messages-box');
+            const msg = document.createElement('div');
+            msg.className = 'message-row';
+            const color = isMe ? 'var(--brand-color)' : '#ed4245'; 
+            msg.innerHTML = `
+                <div class="avatar" style="background-color: ${color}; width: 40px; height: 40px; margin-right: 16px;">
+                    ${author.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                    <div class="message-header"><span class="message-author">${author}</span><span class="message-time">${time}</span></div>
+                    <div style="color: var(--text-normal); font-size: 15px; word-wrap: break-word;">${text}</div>
+                </div>
+            `;
+            box.appendChild(msg);
+            box.scrollTop = box.scrollHeight; 
+        }
+
+        document.getElementById('btn-home').onclick = showAddFriend;
+        function showAddFriend() {
+            activeChatId = null;
+            document.getElementById('add-friend-view').style.display = 'flex';
+            document.getElementById('messages-view').style.display = 'none';
+        }
+
+        document.getElementById('btn-copy-id').onclick = () => {
+            navigator.clipboard.writeText(currentUser.myId);
+            alert("Ваш ID скопирован: " + currentUser.myId);
+        };
+
+        document.getElementById('btn-logout').onclick = () => {
+            localStorage.removeItem('hzCord_user'); 
+            location.reload();
+        };
+
+        document.getElementById('link-register').onclick = () => { 
+            document.getElementById('login-form').style.display = 'none'; 
+            document.getElementById('register-form').style.display = 'block'; 
+        };
+        document.getElementById('link-login').onclick = () => { 
+            document.getElementById('login-form').style.display = 'block'; 
+            document.getElementById('register-form').style.display = 'none'; 
+        };
+
+        function stringToColor(str) {
+            let hash = 0; 
+            for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
+            let color = '#'; 
+            for (let i = 0; i < 3; i++) color += ('00' + ((hash >> (i * 8)) & 0xFF).toString(16)).substr(-2);
+            return color;
+        }
+    </script>
+</body>
+</html>
